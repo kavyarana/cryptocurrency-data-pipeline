@@ -1,10 +1,23 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'CodePipeline for Batch Pipeline'
+Description: 'CodePipeline for Batch Pipeline using GitHub OAuth Version 1'
 
 Parameters:
-  GitHubConnectionArn:
+  GitHubOwner:
     Type: String
-    Description: ARN of GitHub connection
+    Default: 'kavyarana'
+    Description: GitHub Username
+  GitHubRepo:
+    Type: String
+    Default: 'cryptocurrency-data-pipeline'
+    Description: GitHub Repository Name
+  GitHubBranch:
+    Type: String
+    Default: 'main'
+    Description: Branch to monitor
+  GitHubToken:
+    Type: String
+    NoEcho: true
+    Description: 'Personal Access Token (PAT) from GitHub with repo and admin:repo_hook scopes'
   CodePipelineRoleArn:
     Type: String
     Description: ARN of CodePipeline service role
@@ -16,7 +29,8 @@ Resources:
   ArtifactStoreBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: crypto-batch-pipeline-artifacts-430006376054
+      # Using AccountId to ensure bucket name uniqueness
+      BucketName: !Sub 'crypto-batch-pipeline-artifacts-${AWS::AccountId}'
       VersioningConfiguration:
         Status: Enabled
       PublicAccessBlockConfiguration:
@@ -44,15 +58,16 @@ Resources:
             - Name: SourceAction
               ActionTypeId:
                 Category: Source
-                Owner: AWS
-                Provider: CodeStarSourceConnection
+                Owner: ThirdParty
+                Provider: GitHub
                 Version: '1'
               Configuration:
-                ConnectionArn: !Ref GitHubConnectionArn
-                FullRepositoryId: kavyarana/cryptocurrency-data-pipeline
-                BranchName: main
-                OutputArtifactFormat: CODE_ZIP
-                DetectChanges: true
+                Owner: !Ref GitHubOwner
+                Repo: !Ref GitHubRepo
+                Branch: !Ref GitHubBranch
+                OAuthToken: !Ref GitHubToken
+                # This ensures the pipeline checks for changes automatically
+                PollForSourceChanges: true
               OutputArtifacts:
                 - Name: SourceOutput
 
@@ -78,7 +93,7 @@ Outputs:
   
   PipelineUrl:
     Description: Pipeline URL
-    Value: !Sub 'https://console.aws.amazon.com/codesuite/codepipeline/pipelines/${Pipeline}/view?region=eu-west-2'
+    Value: !Sub 'https://console.aws.amazon.com/codesuite/codepipeline/pipelines/${Pipeline}/view?region=${AWS::Region}'
   
   ArtifactBucket:
     Description: Artifact Storage Bucket
