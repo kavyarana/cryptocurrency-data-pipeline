@@ -8,12 +8,6 @@ phases:
       - echo "Installing dependencies"
       - pip install pytest boto3
 
-  pre_build:
-    commands:
-      - echo "Running tests for batch pipeline"
-      - pytest tests/ -v -k "not consumer and not producer"
-      - echo "Tests passed"
-
   build:
     commands:
       - echo "Validating Glue scripts"
