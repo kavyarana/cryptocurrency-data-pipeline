@@ -137,6 +137,6 @@ except:
         .save(dim_date_path)
 )
 
-print("Gold layer incremental update complete")
+print("Gold layer incremental update complete!")
 
 job.commit()
