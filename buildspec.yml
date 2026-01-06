@@ -1,0 +1,41 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - pip install pytest boto3 moto
+
+  pre_build:
+    commands:
+      - echo "Running tests"
+      - pytest tests/ -v
+
+  build:
+    commands:
+      - echo "Packaging Lambda functions"
+      - cd lambda/producer && zip -r ../../producer.zip . && cd ../..
+      - cd lambda/consumer && zip -r ../../consumer.zip . && cd ../..
+
+  post_build:
+    commands:
+      - echo "Deploying Lambda Producer"
+      - aws lambda update-function-code --function-name crypto_stream_producer --zip-file fileb://producer.zip --region eu-west-2
+      - echo "Deploying Lambda Consumer"
+      - aws lambda update-function-code --function-name crypto_stream_consumer --zip-file fileb://consumer.zip --region eu-west-2
+      - echo "Uploading Glue scripts"
+      - aws s3 cp glue/data_ingestion_s3.py s3://aws-glue-assets-430006376054-eu-west-2/scripts/ --region eu-west-2
+      - aws s3 cp glue/data_transform_s3.py s3://aws-glue-assets-430006376054-eu-west-2/scripts/ --region eu-west-2
+      - aws s3 cp glue/data_aggregate_gold.py s3://aws-glue-assets-430006376054-eu-west-2/scripts/ --region eu-west-2
+      - echo "Deployment complete"
+
+artifacts:
+  files:
+    - producer.zip
+    - consumer.zip
+    - glue/*.py
+
+cache:
+  paths:
+    - '/root/.cache/pip/**/*'
