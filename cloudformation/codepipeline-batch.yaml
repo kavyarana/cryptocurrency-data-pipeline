@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CodePipeline for Batch Pipeline'
+
+Parameters:
+  GitHubConnectionArn:
+    Type: String
+    Description: ARN of GitHub connection
+  CodePipelineRoleArn:
+    Type: String
+    Description: ARN of CodePipeline service role
+  CodeBuildProjectName:
+    Type: String
+    Description: Name of CodeBuild project
+
+Resources:
+  ArtifactStoreBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: crypto-batch-pipeline-artifacts-430006376054
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldArtifacts
+            Status: Enabled
+            ExpirationInDays: 30
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: crypto-batch-pipeline-cicd
+      RoleArn: !Ref CodePipelineRoleArn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactStoreBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              Configuration:
+                ConnectionArn: !Ref GitHubConnectionArn
+                FullRepositoryId: kavyarana/cryptocurrency-data-pipeline
+                BranchName: main
+                OutputArtifactFormat: CODE_ZIP
+                DetectChanges: true
+              OutputArtifacts:
+                - Name: SourceOutput
+
+        - Name: Build
+          Actions:
+            - Name: BuildAndDeploy
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProjectName
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+
+Outputs:
+  PipelineName:
+    Description: Pipeline Name
+    Value: !Ref Pipeline
+  
+  PipelineUrl:
+    Description: Pipeline URL
+    Value: !Sub 'https://console.aws.amazon.com/codesuite/codepipeline/pipelines/${Pipeline}/view?region=eu-west-2'
+  
+  ArtifactBucket:
+    Description: Artifact Storage Bucket
+    Value: !Ref ArtifactStoreBucket

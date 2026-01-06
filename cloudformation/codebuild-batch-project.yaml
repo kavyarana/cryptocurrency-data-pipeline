@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CodeBuild Project for Batch Pipeline'
+
+Parameters:
+  ServiceRoleArn:
+    Type: String
+    Description: ARN of CodeBuild service role
+
+Resources:
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: crypto-batch-pipeline-build
+      Description: Build and deploy batch pipeline Glue scripts
+      ServiceRole: !Ref ServiceRoleArn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: eu-west-2
+          - Name: AWS_ACCOUNT_ID
+            Value: '430006376054'
+          - Name: GLUE_SCRIPTS_BUCKET
+            Value: aws-glue-assets-430006376054-eu-west-2
+          - Name: GLUE_SCRIPTS_PREFIX
+            Value: scripts
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec-batch.yml
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: /aws/codebuild/crypto-batch-pipeline-build
+      TimeoutInMinutes: 10
+
+Outputs:
+  ProjectName:
+    Description: CodeBuild Project Name
+    Value: !Ref CodeBuildProject
+    Export:
+      Name: CryptoBatch-CodeBuild-ProjectName
+
+  ProjectArn:
+    Description: CodeBuild Project ARN
+    Value: !GetAtt CodeBuildProject.Arn

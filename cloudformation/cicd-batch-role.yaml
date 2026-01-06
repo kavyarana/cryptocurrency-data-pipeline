@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM Roles for Batch Pipeline CI/CD'
+
+Resources:
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CryptoBatch-CodePipeline-Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodePipelinePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource:
+                  - arn:aws:s3:::codepipeline-eu-west-2-*/*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource:
+                  - arn:aws:s3:::codepipeline-eu-west-2-*
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                Resource:
+                  - !Sub 'arn:aws:codebuild:eu-west-2:430006376054:project/crypto-batch-pipeline-build'
+              - Effect: Allow
+                Action:
+                  - codestar-connections:UseConnection
+                Resource: '*'
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CryptoBatch-CodeBuild-Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodeBuildPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - arn:aws:logs:eu-west-2:430006376054:log-group:/aws/codebuild/crypto-batch-pipeline-build
+                  - arn:aws:logs:eu-west-2:430006376054:log-group:/aws/codebuild/crypto-batch-pipeline-build:*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource:
+                  - arn:aws:s3:::codepipeline-eu-west-2-*/*
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                Resource:
+                  - arn:aws:s3:::aws-glue-assets-430006376054-eu-west-2/scripts/*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - arn:aws:s3:::aws-glue-assets-430006376054-eu-west-2
+              - Effect: Allow
+                Action:
+                  - glue:GetJob
+                  - glue:GetJobs
+                Resource:
+                  - arn:aws:glue:eu-west-2:430006376054:job/data_ingestion_s3
+                  - arn:aws:glue:eu-west-2:430006376054:job/data_transform_s3
+                  - arn:aws:glue:eu-west-2:430006376054:job/data_aggregate_gold
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - arn:aws:sns:eu-west-2:430006376054:crypto-notifications
+
+Outputs:
+  CodePipelineRoleArn:
+    Description: CodePipeline Service Role ARN
+    Value: !GetAtt CodePipelineServiceRole.Arn
+    Export:
+      Name: CryptoBatch-CodePipeline-RoleArn
+
+  CodeBuildRoleArn:
+    Description: CodeBuild Service Role ARN
+    Value: !GetAtt CodeBuildServiceRole.Arn
+    Export:
+      Name: CryptoBatch-CodeBuild-RoleArn

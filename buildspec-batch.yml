@@ -1,0 +1,42 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "Installing dependencies"
+      - pip install pytest boto3
+
+  pre_build:
+    commands:
+      - echo "Running tests for batch pipeline"
+      - pytest tests/ -v -k "not consumer and not producer"
+      - echo "Tests passed"
+
+  build:
+    commands:
+      - echo "Validating Glue scripts"
+      - python -m py_compile glue/data_ingestion_s3.py
+      - python -m py_compile glue/data_transform_s3.py
+      - python -m py_compile glue/data_aggregate_gold.py
+      - echo "All Glue scripts validated"
+
+  post_build:
+    commands:
+      - echo "Deploying Glue scripts to S3"
+      - aws s3 cp glue/data_ingestion_s3.py s3://aws-glue-assets-430006376054-eu-west-2/scripts/data_ingestion_s3.py --region eu-west-2
+      - aws s3 cp glue/data_transform_s3.py s3://aws-glue-assets-430006376054-eu-west-2/scripts/data_transform_s3.py --region eu-west-2
+      - aws s3 cp glue/data_aggregate_gold.py s3://aws-glue-assets-430006376054-eu-west-2/scripts/data_aggregate_gold.py --region eu-west-2
+      - echo "Glue scripts updated successfully"
+      - echo "Next Glue job run will use updated scripts"
+      - aws sns publish --topic-arn arn:aws:sns:eu-west-2:430006376054:crypto-notifications --subject "Batch CI/CD Success" --message "Glue scripts updated successfully. Changes will apply on next pipeline execution." --region eu-west-2
+
+artifacts:
+  files:
+    - glue/*.py
+  name: batch-glue-scripts
+
+cache:
+  paths:
+    - '/root/.cache/pip/**/*'
