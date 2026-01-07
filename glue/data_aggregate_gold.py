@@ -72,7 +72,8 @@ fact_path = f"{GOLD_PATH}fact_crypto_daily/"
 
 try:
     df_existing_fact = spark.read.parquet(fact_path)
-    print(f"Existing fact table: {df_existing_fact.count()} records")
+    existing_count = df_existing_fact.count()
+    print(f"Existing fact table: {existing_count} records")
     
     # Get distinct dates from new data
     new_dates = [row.date for row in fact_new.select("date").distinct().collect()]
@@ -85,10 +86,12 @@ try:
     print(f"After merge: {fact_final.count()} total records")
     
 except Exception as e:
-    print(f"First run - creating new fact table (Error: {e})")
+    print(f"No existing fact table or read error: {str(e)}")
+    print("Creating new fact table from scratch")
     fact_final = fact_new
 
 # Write fact table
+print(f"Writing fact table with {fact_final.count()} records...")
 fact_final.write \
     .mode("overwrite") \
     .format("parquet") \
@@ -96,7 +99,7 @@ fact_final.write \
     .partitionBy("date") \
     .save(fact_path)
 
-print(f" Fact table written: {fact_final.count()} records")
+print(f"Fact table written successfully")
 
 # CREATE DIM_COINS
 print("Creating dim_coins...")
@@ -108,21 +111,31 @@ dim_coins_new = df_recent.select(
     F.col("name")
 ).distinct()
 
+new_coins_count = dim_coins_new.count()
+print(f"New coins to add: {new_coins_count}")
+
 try:
     dim_coins_existing = spark.read.parquet(dim_coins_path)
+    existing_coins = dim_coins_existing.count()
+    print(f"Existing coins: {existing_coins}")
+    
     dim_coins_final = dim_coins_existing.union(dim_coins_new).distinct()
-    print(f"Updated dim_coins: {dim_coins_final.count()} coins")
+    final_coins = dim_coins_final.count()
+    print(f"After merge: {final_coins} unique coins")
+    
 except Exception as e:
-    print(f"Creating new dim_coins (Error: {e})")
+    print(f"No existing dim_coins or read error: {str(e)}")
+    print("Creating new dim_coins from scratch")
     dim_coins_final = dim_coins_new
 
+print(f"Writing dim_coins with {dim_coins_final.count()} records...")
 dim_coins_final.write \
     .mode("overwrite") \
     .format("parquet") \
     .option("compression", "snappy") \
     .save(dim_coins_path)
 
-print(f"Dim_coins written: {dim_coins_final.count()} coins")
+print(f"Dim_coins written successfully")
 
 # CREATE DIM_DATE
 print("Creating dim_date...")
@@ -150,29 +163,42 @@ dim_date_new = df_recent.select(
     "is_weekend", F.when(F.dayofweek(F.col("date")).isin([1, 7]), True).otherwise(False)
 )
 
+new_dates_count = dim_date_new.count()
+print(f"New dates to add: {new_dates_count}")
+
 try:
     dim_date_existing = spark.read.parquet(dim_date_path)
+    existing_dates = dim_date_existing.count()
+    print(f"Existing dates: {existing_dates}")
+    
     dim_date_final = dim_date_existing.union(dim_date_new).distinct()
-    print(f"Updated dim_date: {dim_date_final.count()} dates")
+    final_dates = dim_date_final.count()
+    print(f"After merge: {final_dates} unique dates")
+    
 except Exception as e:
-    print(f"Creating new dim_date (Error: {e})")
+    print(f"No existing dim_date or read error: {str(e)}")
+    print("Creating new dim_date from scratch")
     dim_date_final = dim_date_new
 
+print(f"Writing dim_date with {dim_date_final.count()} records...")
 dim_date_final.write \
     .mode("overwrite") \
     .format("parquet") \
     .option("compression", "snappy") \
     .save(dim_date_path)
 
-print(f" Dim_date written: {dim_date_final.count()} dates")
+print(f" Dim_date written successfully")
 
-print("=" * 50)
+print("=" * 60)
 print("GOLD LAYER SUMMARY")
-print("=" * 50)
-print(f"fact_crypto_daily: {fact_final.count()} records")
-print(f"dim_coins: {dim_coins_final.count()} coins")
-print(f"dim_date: {dim_date_final.count()} dates")
-print("=" * 50)
+print("=" * 60)
+fact_count = spark.read.parquet(fact_path).count()
+coins_count = spark.read.parquet(dim_coins_path).count()
+dates_count = spark.read.parquet(dim_date_path).count()
+print(f"fact_crypto_daily: {fact_count} records")
+print(f"dim_coins: {coins_count} coins")
+print(f"dim_date: {dates_count} dates")
+print("=" * 60)
 
 print("Gold layer aggregation completed successfully!")
 
