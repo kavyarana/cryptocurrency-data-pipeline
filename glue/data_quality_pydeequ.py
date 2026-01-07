@@ -1,7 +1,7 @@
 import sys
 import os
 
-os.environ['SPARK_VERSION'] = '3.3'
+os.environ['SPARK_VERSION'] = '3.1'
 
 from datetime import datetime
 from awsglue.context import GlueContext
@@ -27,7 +27,7 @@ SILVER_VALIDATED_PATH = "s3://kavyabd/silver-pydeequ-validated/"
 DLQ_PATH = "s3://kavyabd/dlq/silver-violations/pydeequ/"
 RESULTS_PATH = "s3://kavyabd/data-quality-results/pydeequ/"
 
-print("PYDEEQU DATA QUALITY JOB STARTED - Glue 4.0 / Spark 3.3")
+print("PYDEEQU DATA QUALITY JOB STARTED - Glue 4.0 / Spark 3.1")
 
 df = spark.read.parquet(SILVER_INTERMEDIATE_PATH)
 
