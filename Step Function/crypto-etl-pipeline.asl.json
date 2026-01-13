@@ -1,0 +1,98 @@
+{
+  "Comment": "Crypto Batch ETL Pipeline - 4 Jobs with Data Quality",
+  "StartAt": "RunIngestionJob",
+  "States": {
+    "RunIngestionJob": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "data_ingestion_s3"
+      },
+      "ResultPath": "$.IngestionResult",
+      "Next": "RunTransformJob",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.ErrorInfo",
+          "Next": "NotifyFailure"
+        }
+      ]
+    },
+    "RunTransformJob": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "data_transform_s3"
+      },
+      "ResultPath": "$.TransformResult",
+      "Next": "RunDQDLJob",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.ErrorInfo",
+          "Next": "NotifyFailure"
+        }
+      ]
+    },
+    "RunDQDLJob": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "data_quality_dqdl"
+      },
+      "ResultPath": "$.DQDLResult",
+      "Next": "RunGoldJob",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.ErrorInfo",
+          "Next": "NotifyFailure"
+        }
+      ]
+    },
+    "RunGoldJob": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "data_aggregate_gold"
+      },
+      "ResultPath": "$.GoldResult",
+      "Next": "NotifySuccess",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.ErrorInfo",
+          "Next": "NotifyFailure"
+        }
+      ]
+    },
+    "NotifySuccess": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:eu-west-2:430006376054:crypto-notifications",
+        "Subject": "✅ Crypto ETL Pipeline Success",
+        "Message": "Pipeline completed successfully!\n\nJobs executed:\n✅ Ingestion (100 coins)\n✅ Transform (schema validation)\n✅ DQDL (data quality checks)\n✅ Gold (star schema)\n\nData ready for analytics!"
+      },
+      "End": true
+    },
+    "NotifyFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:eu-west-2:430006376054:crypto-notifications",
+        "Subject": "❌ Crypto ETL Pipeline FAILED",
+        "Message": "Pipeline execution failed. Check CloudWatch Logs for details."
+      },
+      "End": true
+    }
+  }
+}
